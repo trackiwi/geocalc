@@ -100,14 +100,14 @@ defmodule Geocalc do
       iex> berlin = {52.5075419, 13.4251364}
       iex> paris = {48.8588589, 2.3475569}
       iex> Geocalc.bearing(berlin, paris)
-      -1.9739245359361486
+      -1.9739245359361473
       iex> Geocalc.bearing(paris, berlin)
-      1.0178267866082613
+      1.0178267866082626
 
       iex> berlin = %{lat: 52.5075419, lon: 13.4251364}
       iex> paris = %{latitude: 48.8588589, longitude: 2.3475569}
       iex> Geocalc.bearing(berlin, paris)
-      -1.9739245359361486
+      -1.9739245359361473
 
   """
   @spec bearing(Point.t(), Point.t()) :: number
@@ -131,7 +131,7 @@ defmodule Geocalc do
       iex> bearing = Geocalc.bearing(berlin, paris)
       iex> distance = 400_000
       iex> Geocalc.destination_point(berlin, bearing, distance)
-      {:ok, [50.97658022467569, 8.165929595956982]}
+      {:ok, [50.97658022467569, 8.165929595956978]}
 
       iex> zero_point = {0.0, 0.0}
       iex> equator_degrees = 90.0
@@ -189,7 +189,7 @@ defmodule Geocalc do
       iex> london = {51.5286416, -0.1015987}
       iex> paris = {48.8588589, 2.3475569}
       iex> Geocalc.intersection_point(berlin, london, paris, london)
-      {:ok, [51.5286416, -0.10159869999998701]}
+      {:ok, [51.5286416, -0.10159869999998543]}
 
   Raise exception when no intersection points:
 
@@ -391,7 +391,7 @@ defmodule Geocalc do
       iex> paris = [48.8588589, 2.3475569]
       iex> bearing = Geocalc.bearing(berlin, paris)
       iex> Geocalc.max_latitude(berlin, bearing)
-      55.953467429882835
+      55.95346742988281
 
   """
   @spec max_latitude(Point.t(), number) :: number
@@ -411,7 +411,7 @@ defmodule Geocalc do
       iex> london = [51.5286416, -0.1015987]
       iex> paris = [48.8588589, 2.3475569]
       iex> Geocalc.cross_track_distance_to(berlin, london, paris)
-      -877680.2992295175
+      -877680.2992295168
 
   """
   @spec cross_track_distance_to(Point.t(), Point.t(), Point.t()) :: number
@@ -452,7 +452,7 @@ defmodule Geocalc do
       iex> berlin = [52.5075419, 13.4251364]
       iex> paris = [48.8588589, 2.3475569]
       iex> Geocalc.crossing_parallels(berlin, paris, 12.3456)
-      {:ok, 123.179463369946, -39.81144878508576}
+      {:ok, 123.179463369946, -39.8114487850859}
 
       iex> point_1 = %{lat: 0, lng: 0}
       iex> point_2 = %{lat: -180, lng: -90}
