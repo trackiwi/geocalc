@@ -3,11 +3,22 @@ defprotocol Geocalc.Point do
   The `Geocalc.Point` protocol is responsible for receiving latitude and
   longitude from any Elixir data structure.
 
-  At this time it have implementations only for Map, Tuple and List, and Shape
+  At this time it has implementations for Map, Tuple and List, and the shapes
   defined inside this project.
 
-  Point values can be decimal degrees or DMS (degrees, minutes, seconds).
+  Point values can be numbers in decimal degrees, `Geocalc.DMS` structs
+  (degrees, minutes, seconds), or `Decimal` structs when the optional `:decimal`
+  dependency is available.
   """
+
+  @typedoc """
+  A latitude or longitude value: decimal degrees as a number, a `Geocalc.DMS`
+  struct, or a `Decimal` struct (only with the optional `:decimal` dependency).
+  """
+  @type coordinate ::
+          number()
+          | Geocalc.DMS.t()
+          | %{required(:__struct__) => Decimal, optional(atom()) => any()}
 
   @doc """
   Returns point latitude.
@@ -20,218 +31,50 @@ defprotocol Geocalc.Point do
   def longitude(point)
 end
 
+defmodule Geocalc.Point.Coordinate do
+  @moduledoc false
+
+  # Decimal is an optional dependency: match its struct by name so this compiles
+  # without it. Decimal is only called when a Decimal value was passed in, in
+  # which case the module is necessarily loaded.
+  @compile {:no_warn_undefined, Decimal}
+
+  def to_degrees(degrees) when is_number(degrees), do: degrees
+  def to_degrees(%Geocalc.DMS{} = dms), do: Geocalc.DMS.to_degrees(dms)
+  def to_degrees(%{__struct__: Decimal} = decimal), do: Decimal.to_float(decimal)
+end
+
 defimpl Geocalc.Point, for: List do
-  def latitude([lat = %Geocalc.DMS{}, _lng]) do
-    Geocalc.DMS.to_degrees(lat)
-  end
+  alias Geocalc.Point.Coordinate
 
-  def latitude([lat = %Decimal{}, _lng]) do
-    Decimal.to_float(lat)
-  end
-
-  def latitude([lat, _lng]) when is_number(lat) do
-    lat
-  end
-
-  def longitude([_lat, lng = %Geocalc.DMS{}]) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude([_lat, lng = %Decimal{}]) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude([_lat, lng]) when is_number(lng) do
-    lng
-  end
+  def latitude([lat, _lng]), do: Coordinate.to_degrees(lat)
+  def longitude([_lat, lng]), do: Coordinate.to_degrees(lng)
 end
 
 defimpl Geocalc.Point, for: Map do
-  def latitude(%{lat: lat = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lat)
-  end
+  alias Geocalc.Point.Coordinate
 
-  def latitude(%{lat: lat = %Decimal{}}) do
-    Decimal.to_float(lat)
-  end
+  def latitude(%{lat: lat}), do: Coordinate.to_degrees(lat)
+  def latitude(%{latitude: lat}), do: Coordinate.to_degrees(lat)
 
-  def latitude(%{lat: lat}) when is_number(lat) do
-    lat
-  end
-
-  def latitude(%{latitude: lat = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lat)
-  end
-
-  def latitude(%{latitude: lat = %Decimal{}}) do
-    Decimal.to_float(lat)
-  end
-
-  def latitude(%{latitude: lat}) when is_number(lat) do
-    lat
-  end
-
-  def longitude(%{lon: lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude(%{lon: lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude(%{lon: lng}) when is_number(lng) do
-    lng
-  end
-
-  def longitude(%{lng: lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude(%{lng: lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude(%{lng: lng}) when is_number(lng) do
-    lng
-  end
-
-  def longitude(%{longitude: lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude(%{longitude: lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude(%{longitude: lng}) when is_number(lng) do
-    lng
-  end
+  def longitude(%{lon: lng}), do: Coordinate.to_degrees(lng)
+  def longitude(%{lng: lng}), do: Coordinate.to_degrees(lng)
+  def longitude(%{longitude: lng}), do: Coordinate.to_degrees(lng)
 end
 
 defimpl Geocalc.Point, for: Tuple do
-  def latitude({lat = %Geocalc.DMS{}, _lng}) do
-    Geocalc.DMS.to_degrees(lat)
-  end
+  alias Geocalc.Point.Coordinate
 
-  def latitude({lat = %Decimal{}, _lng}) do
-    Decimal.to_float(lat)
-  end
+  def latitude({lat, _lng}), do: Coordinate.to_degrees(lat)
+  def latitude({:ok, lat, _lng}), do: Coordinate.to_degrees(lat)
 
-  def latitude({lat, _lng}) when is_number(lat) do
-    lat
-  end
-
-  def latitude({:ok, lat = %Geocalc.DMS{}, _lng}) do
-    Geocalc.DMS.to_degrees(lat)
-  end
-
-  def latitude({:ok, lat = %Decimal{}, _lng}) do
-    Decimal.to_float(lat)
-  end
-
-  def latitude({:ok, lat, _lng}) when is_number(lat) do
-    lat
-  end
-
-  def longitude({_lat, lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude({_lat, lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude({_lat, lng}) when is_number(lng) do
-    lng
-  end
-
-  def longitude({:ok, _lat, lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude({:ok, _lat, lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude({:ok, _lat, lng}) when is_number(lng) do
-    lng
-  end
+  def longitude({_lat, lng}), do: Coordinate.to_degrees(lng)
+  def longitude({:ok, _lat, lng}), do: Coordinate.to_degrees(lng)
 end
 
-defimpl Geocalc.Point, for: Geocalc.Shape.Circle do
-  def latitude(%Geocalc.Shape.Circle{latitude: lat = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lat)
-  end
+defimpl Geocalc.Point, for: [Geocalc.Shape.Circle, Geocalc.Shape.Rectangle, Geocalc.Shape.Ellipse] do
+  alias Geocalc.Point.Coordinate
 
-  def latitude(%Geocalc.Shape.Circle{latitude: lat = %Decimal{}}) do
-    Decimal.to_float(lat)
-  end
-
-  def latitude(%Geocalc.Shape.Circle{latitude: lat}) when is_number(lat) do
-    lat
-  end
-
-  def longitude(%Geocalc.Shape.Circle{longitude: lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude(%Geocalc.Shape.Circle{longitude: lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude(%Geocalc.Shape.Circle{longitude: lng}) when is_number(lng) do
-    lng
-  end
-end
-
-defimpl Geocalc.Point, for: Geocalc.Shape.Rectangle do
-  def latitude(%Geocalc.Shape.Rectangle{latitude: lat = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lat)
-  end
-
-  def latitude(%Geocalc.Shape.Rectangle{latitude: lat = %Decimal{}}) do
-    Decimal.to_float(lat)
-  end
-
-  def latitude(%Geocalc.Shape.Rectangle{latitude: lat}) when is_number(lat) do
-    lat
-  end
-
-  def longitude(%Geocalc.Shape.Rectangle{longitude: lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude(%Geocalc.Shape.Rectangle{longitude: lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude(%Geocalc.Shape.Rectangle{longitude: lng}) when is_number(lng) do
-    lng
-  end
-end
-
-defimpl Geocalc.Point, for: Geocalc.Shape.Ellipse do
-  def latitude(%Geocalc.Shape.Ellipse{latitude: lat = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lat)
-  end
-
-  def latitude(%Geocalc.Shape.Ellipse{latitude: lat = %Decimal{}}) do
-    Decimal.to_float(lat)
-  end
-
-  def latitude(%Geocalc.Shape.Ellipse{latitude: lat}) when is_number(lat) do
-    lat
-  end
-
-  def longitude(%Geocalc.Shape.Ellipse{longitude: lng = %Geocalc.DMS{}}) do
-    Geocalc.DMS.to_degrees(lng)
-  end
-
-  def longitude(%Geocalc.Shape.Ellipse{longitude: lng = %Decimal{}}) do
-    Decimal.to_float(lng)
-  end
-
-  def longitude(%Geocalc.Shape.Ellipse{longitude: lng}) when is_number(lng) do
-    lng
-  end
+  def latitude(%{latitude: lat}), do: Coordinate.to_degrees(lat)
+  def longitude(%{longitude: lng}), do: Coordinate.to_degrees(lng)
 end

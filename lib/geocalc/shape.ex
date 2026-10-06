@@ -21,8 +21,8 @@ defmodule Geocalc.Shape do
     defstruct [:latitude, :longitude, :radius]
 
     @type t :: %__MODULE__{
-            latitude: number | Decimal.t() | Geocalc.DMS.t(),
-            longitude: number | Decimal.t() | Geocalc.DMS.t(),
+            latitude: Geocalc.Point.coordinate(),
+            longitude: Geocalc.Point.coordinate(),
             radius: number
           }
   end
@@ -47,8 +47,8 @@ defmodule Geocalc.Shape do
     defstruct [:latitude, :longitude, :long_semi_axis, :short_semi_axis, :angle]
 
     @type t :: %__MODULE__{
-            latitude: number | Decimal.t() | Geocalc.DMS.t(),
-            longitude: number | Decimal.t() | Geocalc.DMS.t(),
+            latitude: Geocalc.Point.coordinate(),
+            longitude: Geocalc.Point.coordinate(),
             long_semi_axis: number,
             short_semi_axis: number,
             angle: number
@@ -74,8 +74,8 @@ defmodule Geocalc.Shape do
     defstruct [:latitude, :longitude, :long_semi_axis, :short_semi_axis, :angle]
 
     @type t :: %__MODULE__{
-            latitude: number | Decimal.t() | Geocalc.DMS.t(),
-            longitude: number | Decimal.t() | Geocalc.DMS.t(),
+            latitude: Geocalc.Point.coordinate(),
+            longitude: Geocalc.Point.coordinate(),
             long_semi_axis: number,
             short_semi_axis: number,
             angle: number
