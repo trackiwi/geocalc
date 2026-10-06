@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.9.0 - 2026-10-06
+
+* Make Decimal an optional dependency; projects passing Decimal coordinates must depend on :decimal themselves
+* Return an error from intersection_point/4 when both paths lie on the same great circle instead of an arbitrary point
+* Guarantee that bounding_box/2 contains every point within the radius, using the same spherical earth as distance_between/2
+* Span all longitudes in bounding_box/2 for circles containing a pole or crossing the antimeridian, fixing a hang at ±90°
+* Compute bounding_box_for_points/1 directly from the coordinates, without a lossy degree/radian round trip
+* Fix within?/2 for polygons given as [lon, lat] with longitudes beyond ±90°
+* Fix area functions computing the earth radius from degrees instead of radians
+* Fix along_track_distance_to/3 raising ArithmeticError and losing up to ~2 m of precision near the path start
+* Fix crossing_parallels/3 raising for identical points and for the equator at latitude 0
+* Remove internal exceptions from intersection_point/4 and guard all acos/asin arguments against rounding
+* Raise for map points with an unsupported value instead of falling through to an alternative key
+* Add Geocalc.Point.coordinate() type so Dialyzer works in projects without Decimal
+* Fix max_latitude/2 and intersection_point/4 documentation
+* Make the test suite independent of the platform's math library
+* Replace Benchfella with Benchee for benchmarks
+* Add support for elixir 1.19 and otp 28
+
 ## v0.8.5 - 2022-10-14
 
 * Add support for elixir 1.12, 1.13, 1.14 and otp 24, 25

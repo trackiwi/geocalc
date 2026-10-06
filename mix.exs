@@ -16,7 +16,8 @@ defmodule Geocalc.Mixfile do
       dialyzer: dialyzer(),
       package: package(),
       deps: deps(),
-      docs: docs()
+      docs: docs(),
+      aliases: [bench: "run bench/geocalc_bench.exs"]
     ]
   end
 
@@ -28,7 +29,7 @@ defmodule Geocalc.Mixfile do
 
   defp deps do
     [
-      {:benchfella, "~> 0.3.5", only: :bench},
+      {:benchee, "~> 1.5", only: :bench},
       {:decimal, "~> 2.0 or ~> 3.0", optional: true},
       {:dialyxir, "~> 1.2", only: [:dev, :test], runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
