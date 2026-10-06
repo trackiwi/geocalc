@@ -43,8 +43,8 @@ defmodule Geocalc.Calculator.Area do
     point_lon = Calculator.degrees_to_radians(Point.longitude(point))
 
     # Get earth radius for origin and position
-    origin_radius = Calculator.earth_radius(Point.latitude(area))
-    point_radius = Calculator.earth_radius(Point.latitude(point))
+    origin_radius = Calculator.earth_radius(origin_lat)
+    point_radius = Calculator.earth_radius(point_lat)
 
     # Project coordinates onto cartesian plane
     xo = origin_radius * :math.cos(origin_lat) * :math.cos(origin_lon)

@@ -7,6 +7,7 @@ defmodule Geocalc.Calculator do
   @pi :math.pi()
   @epsilon 2.220446049250313e-16
   @intersection_not_found "No intersection point found"
+  @same_great_circle_tolerance 1.0e-9 # less than 1cm
 
   def distance_between(point_1, point_2, radius \\ @earth_radius) do
     fo_1 = degrees_to_radians(Point.latitude(point_1))
@@ -67,9 +68,23 @@ defmodule Geocalc.Calculator do
 
   def intersection_point(point_1, bearing_1, point_2, bearing_2)
       when is_number(bearing_1) and is_number(bearing_2) do
-    intersection_point!(point_1, bearing_1, point_2, bearing_2)
-  catch
-    message -> {:error, message}
+    fo_1 = degrees_to_radians(Point.latitude(point_1))
+    la_1 = degrees_to_radians(Point.longitude(point_1))
+    fo_2 = degrees_to_radians(Point.latitude(point_2))
+    la_2 = degrees_to_radians(Point.longitude(point_2))
+    path_1 = {fo_1, la_1, bearing_1}
+    path_2 = {fo_2, la_2, bearing_2}
+
+    # angular distance point_1 - point_2
+    be_12 = angular_distance(fo_1, la_1, fo_2, la_2)
+
+    case {abs(be_12) < @epsilon, same_great_circle?(path_1, path_2)} do
+      # coincident start points
+      {true, _} -> {:ok, [Point.latitude(point_1), Point.longitude(point_1)]}
+      # both paths on the same great circle: infinite intersections
+      {false, true} -> {:error, @intersection_not_found}
+      {false, false} -> intersection_of_paths(path_1, path_2, be_12)
+    end
   end
 
   def intersection_point(point_1, bearing_1, point_3, point_4) when is_number(bearing_1) do
@@ -86,100 +101,6 @@ defmodule Geocalc.Calculator do
     brng_1 = bearing(point_1, point_2)
     brng_3 = bearing(point_3, point_4)
     intersection_point(point_1, brng_1, point_3, brng_3)
-  end
-
-  defp intersection_point!(point_1, bearing_1, point_2, bearing_2) do
-    fo_1 = degrees_to_radians(Point.latitude(point_1))
-    la_1 = degrees_to_radians(Point.longitude(point_1))
-    fo_2 = degrees_to_radians(Point.latitude(point_2))
-    la_2 = degrees_to_radians(Point.longitude(point_2))
-    bo_13 = bearing_1
-    bo_23 = bearing_2
-
-    diff_fo = fo_2 - fo_1
-    diff_la = la_2 - la_1
-
-    # angular distance point_1 - point_2
-    be_12 =
-      2 *
-        :math.asin(
-          :math.sqrt(
-            :math.sin(diff_fo / 2) * :math.sin(diff_fo / 2) +
-              :math.cos(fo_1) * :math.cos(fo_2) * :math.sin(diff_la / 2) * :math.sin(diff_la / 2)
-          )
-        )
-
-    if abs(be_12) < @epsilon do
-      {:ok, [Point.latitude(point_1), Point.longitude(point_1)]}
-    else
-      cos_fo_a =
-        (:math.sin(fo_2) - :math.sin(fo_1) * :math.cos(be_12)) /
-          (:math.sin(be_12) * :math.cos(fo_1))
-
-      cos_fo_b =
-        (:math.sin(fo_1) - :math.sin(fo_2) * :math.cos(be_12)) /
-          (:math.sin(be_12) * :math.cos(fo_2))
-
-      bo_1 = :math.acos(min(max(cos_fo_a, -1), 1))
-      bo_2 = :math.acos(min(max(cos_fo_b, -1), 1))
-
-      {bo_12, bo_21} =
-        if :math.sin(la_2 - la_1) > 0 do
-          {bo_1, 2 * :math.pi() - bo_2}
-        else
-          {2 * :math.pi() - bo_1, bo_2}
-        end
-
-      a_1 = bo_13 - bo_12
-      a_2 = bo_21 - bo_23
-      # infinite intersections
-      if :math.sin(a_1) == 0 && :math.sin(a_2) == 0, do: throw(@intersection_not_found)
-      # ambiguous intersection
-      if :math.sin(a_1) * :math.sin(a_2) < 0, do: throw(@intersection_not_found)
-
-      a_3 =
-        :math.acos(
-          -:math.cos(a_1) * :math.cos(a_2) + :math.sin(a_1) * :math.sin(a_2) * :math.cos(be_12)
-        )
-
-      be_13 =
-        :math.atan2(
-          :math.sin(be_12) * :math.sin(a_1) * :math.sin(a_2),
-          :math.cos(a_2) + :math.cos(a_1) * :math.cos(a_3)
-        )
-
-      fo_3 =
-        :math.asin(
-          :math.sin(fo_1) * :math.cos(be_13) +
-            :math.cos(fo_1) * :math.sin(be_13) * :math.cos(bo_13)
-        )
-
-      diff_la_13 =
-        :math.atan2(
-          :math.sin(bo_13) * :math.sin(be_13) * :math.cos(fo_1),
-          :math.cos(be_13) - :math.sin(fo_1) * :math.sin(fo_3)
-        )
-
-      la_3 = la_1 + diff_la_13
-
-      {:ok, [radians_to_degrees(fo_3), radians_to_degrees(la_3)]}
-    end
-  end
-
-  def rem_float(float_1, float_2) when is_float(float_1) and is_float(float_2) do
-    rem_float(Decimal.from_float(float_1), Decimal.from_float(float_2))
-  end
-
-  def rem_float(float_1, decimal_2) when is_float(float_1) do
-    rem_float(Decimal.from_float(float_1), decimal_2)
-  end
-
-  def rem_float(decimal_1, float_2) when is_float(float_2) do
-    rem_float(decimal_1, Decimal.from_float(float_2))
-  end
-
-  def rem_float(decimal_1, decimal_2) do
-    Decimal.to_float(Decimal.rem(decimal_1, decimal_2))
   end
 
   def degrees_to_radians(degrees) do
@@ -217,30 +138,35 @@ defmodule Geocalc.Calculator do
   def bounding_box(point, radius_in_m) do
     lat = degrees_to_radians(Point.latitude(point))
     lon = degrees_to_radians(Point.longitude(point))
-    radius = earth_radius(lat)
-    pradius = radius * :math.cos(lat)
+    # angular radius on the same spherical earth as distance_between/3
+    angle = radius_in_m / @earth_radius
 
-    lat_min = lat - radius_in_m / radius
-    lat_max = lat + radius_in_m / radius
-    lon_min = lon - radius_in_m / pradius
-    lon_max = lon + radius_in_m / pradius
+    lat_min = lat - angle
+    lat_max = lat + angle
 
-    [
-      [radians_to_degrees(lat_min), radians_to_degrees(lon_min)],
-      [radians_to_degrees(lat_max), radians_to_degrees(lon_max)]
-    ]
+    case lat_min > -@pi / 2 and lat_max < @pi / 2 do
+      true ->
+        diff_lon = :math.asin(clamp(:math.sin(angle) / :math.cos(lat)))
+        bounding_box_in_longitude(lat_min, lat_max, lon, diff_lon)
+
+      # the circle contains a pole: cap the latitude and cover all longitudes
+      false ->
+        box_in_degrees(max(lat_min, -@pi / 2), min(lat_max, @pi / 2), -@pi, @pi)
+    end
   end
 
   def bounding_box_for_points([]) do
     [[0, 0], [0, 0]]
   end
 
-  def bounding_box_for_points([point]) do
-    bounding_box(point, 0)
-  end
+  def bounding_box_for_points(points) do
+    latitudes = Enum.map(points, &Point.latitude/1)
+    longitudes = Enum.map(points, &Point.longitude/1)
 
-  def bounding_box_for_points([point | points]) do
-    extend_bounding_box(bounding_box(point, 0), bounding_box_for_points(points))
+    [
+      [Enum.min(latitudes), Enum.min(longitudes)],
+      [Enum.max(latitudes), Enum.max(longitudes)]
+    ]
   end
 
   def extend_bounding_box([sw_point_1, ne_point_1], [sw_point_2, ne_point_2]) do
@@ -334,10 +260,11 @@ defmodule Geocalc.Calculator do
     dist_13 = distance_between(path_start_point, point, radius) / radius
     be_13 = bearing(path_start_point, point)
     be_12 = bearing(path_start_point, path_end_point)
-    bo_xt = :math.asin(:math.sin(dist_13) * :math.sin(be_13 - be_12))
-    bo_at = :math.acos(:math.cos(dist_13) / abs(:math.cos(bo_xt)))
 
-    bo_at * sign(:math.cos(be_12 - be_13)) * radius
+    # Napier's rule for the right spherical triangle start/point/foot:
+    # tan(δat) = tan(δ13) · cos(θ13 − θ12). Mathematically equal to movable-type's
+    # acos(cos δ13 / cos δxt), but well-conditioned everywhere and signed by itself.
+    :math.atan2(:math.sin(dist_13) * :math.cos(be_13 - be_12), :math.cos(dist_13)) * radius
   end
 
   def crossing_parallels(point_1, point_2, latitude) do
@@ -358,19 +285,133 @@ defmodule Geocalc.Calculator do
 
     z = :math.cos(lat_1) * :math.cos(lat_2) * :math.sin(lat) * :math.sin(diff_lon)
 
-    if z * z > x * x + y * y do
-      {:error, "Not found"}
-    else
-      lon_max = :math.atan2(-y, x)
-      diff_lon_i = :math.acos(z / :math.sqrt(x * x + y * y))
-      lon_i_1 = lon_1 + lon_max - diff_lon_i
-      lon_i_2 = lon_1 + lon_max + diff_lon_i
+    xy_squared = x * x + y * y
 
-      {:ok, rem_float(radians_to_degrees(lon_i_1) + 540, 360) - 180,
-       rem_float(radians_to_degrees(lon_i_2) + 540, 360) - 180}
+    case xy_squared == 0 or z * z > xy_squared do
+      # coincident points, the equator itself at latitude 0,
+      # or a great circle that doesn't reach the latitude
+      true -> {:error, "Not found"}
+      false -> crossing_longitudes(lon_1, x, y, z)
     end
   end
 
-  defp sign(int) when int >= 0, do: 1
-  defp sign(int) when int < 0, do: -1
+  defp intersection_from_angles(fo_1, la_1, bo_13, be_12, a_1, a_2) do
+    cos_a_3 =
+      -:math.cos(a_1) * :math.cos(a_2) + :math.sin(a_1) * :math.sin(a_2) * :math.cos(be_12)
+
+    be_13 =
+      :math.atan2(
+        :math.sin(be_12) * :math.sin(a_1) * :math.sin(a_2),
+        :math.cos(a_2) + :math.cos(a_1) * cos_a_3
+      )
+
+    fo_3 =
+      :math.asin(
+        clamp(
+          :math.sin(fo_1) * :math.cos(be_13) +
+            :math.cos(fo_1) * :math.sin(be_13) * :math.cos(bo_13)
+        )
+      )
+
+    diff_la_13 =
+      :math.atan2(
+        :math.sin(bo_13) * :math.sin(be_13) * :math.cos(fo_1),
+        :math.cos(be_13) - :math.sin(fo_1) * :math.sin(fo_3)
+      )
+
+    [radians_to_degrees(fo_3), radians_to_degrees(la_1 + diff_la_13)]
+  end
+
+  defp angular_distance(fo_1, la_1, fo_2, la_2) do
+    diff_fo = fo_2 - fo_1
+    diff_la = la_2 - la_1
+
+    a =
+      :math.sin(diff_fo / 2) * :math.sin(diff_fo / 2) +
+        :math.cos(fo_1) * :math.cos(fo_2) * :math.sin(diff_la / 2) * :math.sin(diff_la / 2)
+
+    2 * :math.asin(min(1.0, :math.sqrt(a)))
+  end
+
+  defp intersection_of_paths({fo_1, la_1, bo_13}, {fo_2, la_2, bo_23}, be_12) do
+    # initial / final bearings between the start points
+    cos_bo_a =
+      (:math.sin(fo_2) - :math.sin(fo_1) * :math.cos(be_12)) /
+        (:math.sin(be_12) * :math.cos(fo_1))
+
+    cos_bo_b =
+      (:math.sin(fo_1) - :math.sin(fo_2) * :math.cos(be_12)) /
+        (:math.sin(be_12) * :math.cos(fo_2))
+
+    bo_a = :math.acos(clamp(cos_bo_a))
+    bo_b = :math.acos(clamp(cos_bo_b))
+
+    {bo_12, bo_21} =
+      case :math.sin(la_2 - la_1) > 0 do
+        true -> {bo_a, 2 * @pi - bo_b}
+        false -> {2 * @pi - bo_a, bo_b}
+      end
+
+    # angle 2-1-3 and angle 1-2-3
+    a_1 = bo_13 - bo_12
+    a_2 = bo_21 - bo_23
+
+    case :math.sin(a_1) * :math.sin(a_2) < 0 do
+      # ambiguous intersection (antipodal / 360°)
+      true -> {:error, @intersection_not_found}
+      false -> {:ok, intersection_from_angles(fo_1, la_1, bo_13, be_12, a_1, a_2)}
+    end
+  end
+
+  defp crossing_longitudes(lon_1, x, y, z) do
+    # longitude at max latitude, and from there to the two crossing points
+    lon_max = :math.atan2(-y, x)
+    diff_lon_i = :math.acos(clamp(z / :math.sqrt(x * x + y * y)))
+
+    # radians_to_degrees/1 already wraps into -180..180, like Dms.wrap180 in the reference
+    {:ok, radians_to_degrees(lon_1 + lon_max - diff_lon_i),
+     radians_to_degrees(lon_1 + lon_max + diff_lon_i)}
+  end
+
+  # protect acos/asin against rounding errors pushing arguments past ±1
+  defp clamp(value), do: value |> max(-1.0) |> min(1.0)
+
+    # The paths lie on the same great circle when the normals of their great circles
+  # are parallel. |c1 × c2| is the sine of the angle between the circles; below the
+  # tolerance they never separate by more than 1.0e-9 × 6371 km ≈ 6 mm.
+  defp same_great_circle?(path_1, path_2) do
+    {x_1, y_1, z_1} = great_circle(path_1)
+    {x_2, y_2, z_2} = great_circle(path_2)
+
+    cx = y_1 * z_2 - z_1 * y_2
+    cy = z_1 * x_2 - x_1 * z_2
+    cz = x_1 * y_2 - y_1 * x_2
+
+    :math.sqrt(cx * cx + cy * cy + cz * cz) < @same_great_circle_tolerance
+  end
+
+  # normal vector of the great circle through a point on a given bearing,
+  # see greatCircle() in movable-type's latlon-nvector-spherical.js
+  defp great_circle({fo, la, bo}) do
+    {
+      :math.sin(la) * :math.cos(bo) - :math.sin(fo) * :math.cos(la) * :math.sin(bo),
+      -:math.cos(la) * :math.cos(bo) - :math.sin(fo) * :math.sin(la) * :math.sin(bo),
+      :math.cos(fo) * :math.sin(bo)
+    }
+  end
+
+  defp bounding_box_in_longitude(lat_min, lat_max, lon, diff_lon) do
+    case lon - diff_lon < -@pi or lon + diff_lon > @pi do
+      # the box would cross the antimeridian: cover all longitudes
+      true -> box_in_degrees(lat_min, lat_max, -@pi, @pi)
+      false -> box_in_degrees(lat_min, lat_max, lon - diff_lon, lon + diff_lon)
+    end
+  end
+
+  defp box_in_degrees(lat_min, lat_max, lon_min, lon_max) do
+    [
+      [radians_to_degrees(lat_min), radians_to_degrees(lon_min)],
+      [radians_to_degrees(lat_max), radians_to_degrees(lon_max)]
+    ]
+  end
 end

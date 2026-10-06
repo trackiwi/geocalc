@@ -140,6 +140,9 @@ defmodule Geocalc do
       iex> Geocalc.destination_point(zero_point, equator_bearing, distance)
       {:ok, [5.484172965344896e-16, 8.993216059187306]}
 
+      The latitude above is mathematically `0.0`; the tiny value is
+      floating-point rounding.
+
       iex> berlin = %{lat: 52.5075419, lon: 13.4251364}
       iex> bearing = -1.9739245359361486
       iex> distance = 100_000
@@ -164,8 +167,9 @@ defmodule Geocalc do
   @doc """
   Finds intersection point from start points with given bearings.
 
-  Returns array with latitude and longitude.
-  Raise an exception if no intersection point found.
+  Returns `{:ok, [latitude, longitude]}`, or `{:error, "No intersection point found"}`
+  when both paths lie on the same great circle, or have no unambiguous intersection
+  ahead of both start points.
 
   ## Examples
 
@@ -191,7 +195,7 @@ defmodule Geocalc do
       iex> Geocalc.intersection_point(berlin, london, paris, london)
       {:ok, [51.5286416, -0.10159869999998543]}
 
-  Raise exception when no intersection points:
+  Returns an error when the paths only meet behind a start point:
 
       iex> berlin_1 = %{lat: 52.5075419, lng: 13.4251364}
       iex> berlin_2 = %{lat: 52.5075419, lng: 13.57}
@@ -203,8 +207,6 @@ defmodule Geocalc do
   @spec intersection_point(Point.t(), point_or_bearing(), Point.t(), point_or_bearing()) :: tuple
   def intersection_point(point_1, bearing_1, point_2, bearing_2) do
     Calculator.intersection_point(point_1, bearing_1, point_2, bearing_2)
-  rescue
-    ArithmeticError -> {:error, "No intersection point found"}
   end
 
   @doc """
@@ -213,12 +215,16 @@ defmodule Geocalc do
   Returns an array with 2 points (list format). The bottom left (southwest) point,
   and the top-right (northeast) one.
 
+  Uses the same spherical earth model as `distance_between/2`, so every point within
+  `radius_in_m` of `point` lies inside the box. When the circle contains a pole or
+  crosses the antimeridian, the box spans all longitudes.
+
   ## Examples
 
       iex> berlin = [52.5075419, 13.4251364]
       iex> radius = 10_000
       iex> Geocalc.bounding_box(berlin, radius)
-      [[52.417520954378574, 13.277235453275123], [52.59756284562143, 13.573037346724874]]
+      [[52.41760973940812, 13.277381220560693], [52.59747406059187, 13.572891579439304]]
 
   """
   @spec bounding_box(Point.t(), number) :: list
@@ -383,7 +389,7 @@ defmodule Geocalc do
   The maximum latitude is independent of longitude; it will be the same for all
   points on a given latitude.
 
-  Returns radians.
+  Returns degreesc.
 
   ## Examples
 
